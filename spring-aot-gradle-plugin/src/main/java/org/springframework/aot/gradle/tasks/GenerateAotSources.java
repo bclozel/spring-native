@@ -30,27 +30,30 @@ import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.TaskExecutionException;
+
 import org.springframework.aot.BootstrapCodeGenerator;
 import org.springframework.nativex.AotOptions;
 
 /**
+ * {@link org.gradle.api.Task} that generates AOT sources using the {@link BootstrapCodeGenerator}.
+ *
  * @author Brian Clozel
+ * @author Andy Wilkinson
  */
 public class GenerateAotSources extends DefaultTask {
 
 	private FileCollection classpath;
 
 	private FileCollection resourceDirectories;
-	
+
 	private final DirectoryProperty sourcesOutputDirectory;
-	
+
 	private final DirectoryProperty resourcesOutputDirectory;
-	
+
 	public GenerateAotSources() {
 		this.sourcesOutputDirectory = getProject().getObjects().directoryProperty();
 		this.resourcesOutputDirectory = getProject().getObjects().directoryProperty();
 	}
-
 
 	@InputFiles
 	public FileCollection getClasspath() {

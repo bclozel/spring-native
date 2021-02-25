@@ -3,21 +3,16 @@ plugins {
 }
 
 repositories {
-    mavenLocal()
 	mavenCentral()
 }
 
 dependencies {
-	implementation 'org.springframework.experimental:spring-aot:0.9.0-SNAPSHOT'
-	implementation 'org.springframework.boot:spring-boot-gradle-plugin:2.4.3'
+	implementation fileTree(dir: 'target/dependencies/compile', include: '*.jar')
 
-	testImplementation 'io.spring.gradle:dependency-management-plugin:1.0.11.RELEASE'
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.0'
-	testImplementation 'org.assertj:assertj-core:3.18.1'
+	testImplementation fileTree(dir: 'target/dependencies/test', include: '*.jar')
 }
 
 gradlePlugin {
-    // Define the plugin
     plugins {
 		springAot {
             id = 'org.springframework.experimental.aot'

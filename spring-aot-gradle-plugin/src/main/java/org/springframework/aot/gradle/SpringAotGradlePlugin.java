@@ -19,12 +19,16 @@ package org.springframework.aot.gradle;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginConvention;
+import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
+import org.gradle.api.tasks.SourceSetContainer;
+import org.gradle.api.tasks.TaskContainer;
 import org.gradle.api.tasks.compile.JavaCompile;
 
 import org.springframework.aot.gradle.tasks.GenerateAotSources;
@@ -33,7 +37,10 @@ import org.springframework.boot.gradle.tasks.bundling.BootJar;
 import org.springframework.boot.gradle.tasks.run.BootRun;
 
 /**
+ * {@link Plugin} that generates AOT sources using {@code spring-native-aot} and compiles them.
  *
+ * @author Brian Clozel
+ * @author Andy Wilkinson
  */
 public class SpringAotGradlePlugin implements Plugin<Project> {
 
@@ -51,59 +58,85 @@ public class SpringAotGradlePlugin implements Plugin<Project> {
 
 		project.getPlugins().withType(JavaPlugin.class, javaPlugin -> {
 
-			JavaPluginConvention java = project.getConvention().getPlugin(JavaPluginConvention.class);
-			// build/generated/sources/aot/org/springframework/beans/Sample.java
-			Path springAotSourcesPath = Paths.get(project.getBuildDir().getAbsolutePath(), "generated", "sources");
-			// build/generated/resources/aot/sample.txt
-			Path springAotResourcesPath = Paths.get(project.getBuildDir().getAbsolutePath(), "generated", "resources");
+			String buildPath = project.getBuildDir().getAbsolutePath();
+			Path generatedSourcesPath = Paths.get(buildPath, "generated", "sources");
+			Path generatedResourcesPath = Paths.get(buildPath, "generated", "resources");
+			SourceSetContainer sourceSets = project.getConvention().getPlugin(JavaPluginConvention.class).getSourceSets();
 
-			/*
-			 * MAIN
-			 */
-			SourceSet mainSourceSet = java.getSourceSets().findByName(SourceSet.MAIN_SOURCE_SET_NAME);
-			File aotSourcesDirectory = springAotSourcesPath.resolve(AOT_SOURCE_SET_NAME).toFile();
-			File aotResourcesDirectory = springAotResourcesPath.resolve(AOT_SOURCE_SET_NAME).toFile();
-			SourceSet aotSourceSet = java.getSourceSets().create(AOT_SOURCE_SET_NAME);
-			aotSourceSet.setCompileClasspath(mainSourceSet.getRuntimeClasspath());
+			File aotSourcesDirectory = generatedSourcesPath.resolve(AOT_SOURCE_SET_NAME).toFile();
+			File aotResourcesDirectory = generatedResourcesPath.resolve(AOT_SOURCE_SET_NAME).toFile();
+			SourceSet aotSourceSet = createAotSourceSet(sourceSets, aotSourcesDirectory, aotResourcesDirectory);
+			GenerateAotSources generateAotSources = createGenerateAotSourcesTask(project.getTasks(), sourceSets, aotSourcesDirectory, aotResourcesDirectory);
+			configureAotTasks(project, aotSourceSet, generateAotSources);
 
-			GenerateAotSources generateAotSources = project.getTasks().create(GENERATE_TASK_NAME, GenerateAotSources.class);
-			generateAotSources.setClasspath(mainSourceSet.getRuntimeClasspath());
-			generateAotSources.setResourceInputDirectories(mainSourceSet.getResources());
-			generateAotSources.getSourcesOutputDirectory().set(aotSourcesDirectory);
-			generateAotSources.getResourcesOutputDirectory().set(aotResourcesDirectory);
-			
-			project.getTasks().named(aotSourceSet.getCompileJavaTaskName(), JavaCompile.class, (aotCompileJava) -> {
-				aotCompileJava.source(generateAotSources.getSourcesOutputDirectory());
-			});
-			
-			project.getTasks().named(SpringBootPlugin.BOOT_JAR_TASK_NAME, BootJar.class, (bootJar) -> 
-				bootJar.classpath(aotSourceSet.getRuntimeClasspath()));
-			project.getTasks().named("bootRun", BootRun.class, (bootRun) -> 
-				bootRun.classpath(aotSourceSet.getRuntimeClasspath()));	
-
-			/*
-			 * TESTS
-			 */
-			SourceSet testSourceSet = java.getSourceSets().findByName(SourceSet.TEST_SOURCE_SET_NAME);
-			File aotTestSourcesDirectory = springAotSourcesPath.resolve(AOT_TEST_SOURCE_SET_NAME).toFile();
-			File aotTestResourcesDirectory = springAotResourcesPath.resolve(AOT_TEST_SOURCE_SET_NAME).toFile();
-			SourceSet aotTestSourceSet = java.getSourceSets().create(AOT_TEST_SOURCE_SET_NAME);
-			aotTestSourceSet.setCompileClasspath(testSourceSet.getCompileClasspath().plus(testSourceSet.getOutput()));
-
-			GenerateAotSources generateAotTestSources = project.getTasks().create(GENERATE_TEST_TASK_NAME, GenerateAotSources.class);
-
-			generateAotTestSources.setClasspath(testSourceSet.getCompileClasspath().plus(testSourceSet.getOutput()));
-			generateAotTestSources.setResourceInputDirectories(testSourceSet.getResources());
-			generateAotTestSources.getSourcesOutputDirectory().set(aotTestSourcesDirectory);
-			generateAotTestSources.getResourcesOutputDirectory().set(aotTestResourcesDirectory);
-
-			aotTestSourceSet.getJava().srcDir(generateAotTestSources.getSourcesOutputDirectory());
-			aotTestSourceSet.getResources().srcDir(generateAotTestSources.getResourcesOutputDirectory());
-
-			project.getTasks().named(aotTestSourceSet.getCompileJavaTaskName()).configure(task -> task.dependsOn(generateAotTestSources));
-			testSourceSet.setRuntimeClasspath(aotTestSourceSet.getOutput().minus(aotSourceSet.getOutput()).plus(testSourceSet.getRuntimeClasspath()));
-
+			File aotTestSourcesDirectory = generatedSourcesPath.resolve(AOT_TEST_SOURCE_SET_NAME).toFile();
+			File aotTestResourcesDirectory = generatedResourcesPath.resolve(AOT_TEST_SOURCE_SET_NAME).toFile();
+			SourceSet aotTestSourceSet = createAotTestSourceSet(sourceSets, aotTestSourcesDirectory, aotTestResourcesDirectory);
+			GenerateAotSources generateAotTestSources = createGenerateAotTestSourcesTask(project.getTasks(), sourceSets, aotTestSourcesDirectory, aotTestResourcesDirectory);
+			configureAotTestTasks(project.getTasks(), sourceSets, aotSourceSet, aotTestSourceSet, generateAotTestSources);
 		});
+	}
+
+	private SourceSet createAotSourceSet(SourceSetContainer sourceSets, File aotSourcesDirectory, File aotResourcesDirectory) {
+		SourceSet aotSourceSet = sourceSets.create(AOT_SOURCE_SET_NAME);
+		aotSourceSet.setCompileClasspath(sourceSets.findByName(SourceSet.MAIN_SOURCE_SET_NAME).getRuntimeClasspath());
+		aotSourceSet.getJava().setSrcDirs(Collections.singletonList(aotSourcesDirectory));
+		aotSourceSet.getResources().setSrcDirs(Collections.singletonList(aotResourcesDirectory));
+		return aotSourceSet;
+	}
+
+	private GenerateAotSources createGenerateAotSourcesTask(TaskContainer tasks, SourceSetContainer sourceSets,
+			File aotSourcesDirectory, File aotResourcesDirectory) {
+		SourceSet mainSourceSet = sourceSets.findByName(SourceSet.MAIN_SOURCE_SET_NAME);
+		GenerateAotSources generate = tasks.create(GENERATE_TASK_NAME, GenerateAotSources.class);
+		generate.setClasspath(mainSourceSet.getRuntimeClasspath());
+		generate.setResourceInputDirectories(mainSourceSet.getResources());
+		generate.getSourcesOutputDirectory().set(aotSourcesDirectory);
+		generate.getResourcesOutputDirectory().set(aotResourcesDirectory);
+		return generate;
+	}
+
+	private void configureAotTasks(Project project, SourceSet aotSourceSet, GenerateAotSources generateAotSources) {
+		project.getTasks().named(aotSourceSet.getCompileJavaTaskName(), JavaCompile.class, (aotCompileJava) -> {
+			aotCompileJava.source(generateAotSources.getSourcesOutputDirectory());
+		});
+		project.getTasks().named(aotSourceSet.getProcessResourcesTaskName(), Copy.class, (aotProcessResources) -> {
+			aotProcessResources.from(generateAotSources.getResourcesOutputDirectory());
+		});
+
+		project.getTasks().named(SpringBootPlugin.BOOT_JAR_TASK_NAME, BootJar.class, (bootJar) ->
+				bootJar.classpath(aotSourceSet.getRuntimeClasspath()));
+		project.getTasks().named("bootRun", BootRun.class, (bootRun) ->
+				bootRun.classpath(aotSourceSet.getRuntimeClasspath()));
+	}
+
+	private SourceSet createAotTestSourceSet(SourceSetContainer sourceSets, File aotTestSourcesDirectory, File aotTestResourcesDirectory) {
+		SourceSet aotTestSourceSet = sourceSets.create(AOT_TEST_SOURCE_SET_NAME);
+		SourceSet testSourceSet = sourceSets.findByName(SourceSet.TEST_SOURCE_SET_NAME);
+		aotTestSourceSet.setCompileClasspath(testSourceSet.getCompileClasspath().plus(testSourceSet.getOutput()));
+		aotTestSourceSet.getJava().setSrcDirs(Collections.singletonList(aotTestSourcesDirectory));
+		aotTestSourceSet.getResources().setSrcDirs(Collections.singletonList(aotTestResourcesDirectory));
+		return aotTestSourceSet;
+	}
+
+	private GenerateAotSources createGenerateAotTestSourcesTask(TaskContainer tasks, SourceSetContainer sourceSets,
+			File aotTestSourcesDirectory, File aotTestResourcesDirectory) {
+		SourceSet testSourceSet = sourceSets.findByName(SourceSet.TEST_SOURCE_SET_NAME);
+		GenerateAotSources generate = tasks.create(GENERATE_TEST_TASK_NAME, GenerateAotSources.class);
+		generate.setClasspath(testSourceSet.getCompileClasspath().plus(testSourceSet.getOutput()));
+		generate.setResourceInputDirectories(testSourceSet.getResources());
+		generate.getSourcesOutputDirectory().set(aotTestSourcesDirectory);
+		generate.getResourcesOutputDirectory().set(aotTestResourcesDirectory);
+		return generate;
+	}
+
+	private void configureAotTestTasks(TaskContainer tasks, SourceSetContainer sourceSets, SourceSet aotSourceSet,
+			SourceSet aotTestSourceSet, GenerateAotSources generateAotTestSources) {
+		SourceSet testSourceSet = sourceSets.findByName(SourceSet.TEST_SOURCE_SET_NAME);
+		aotTestSourceSet.getJava().srcDir(generateAotTestSources.getSourcesOutputDirectory());
+		aotTestSourceSet.getResources().srcDir(generateAotTestSources.getResourcesOutputDirectory());
+		tasks.named(aotTestSourceSet.getCompileJavaTaskName()).configure(task -> task.dependsOn(generateAotTestSources));
+		testSourceSet.setRuntimeClasspath(aotTestSourceSet.getOutput().minus(aotSourceSet.getOutput()).plus(testSourceSet.getRuntimeClasspath()));
 	}
 
 }

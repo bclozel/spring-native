@@ -17,14 +17,13 @@
 package org.springframework.aot.gradle;
 
 import io.spring.gradle.dependencymanagement.DependencyManagementPlugin;
+import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginConvention;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.testfixtures.ProjectBuilder;
-import org.gradle.api.Project;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.aot.gradle.tasks.GenerateAotSources;
@@ -38,22 +37,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class SpringAotGradlePluginTest {
 
 	@Test
-	@Disabled
 	public void pluginRegistersAotSourceSet() {
 		Project project = createTestProject();
 
 		JavaPluginConvention java = project.getConvention().getPlugin(JavaPluginConvention.class);
 
 		SourceSet aotSourceSet = java.getSourceSets().findByName(SpringAotGradlePlugin.AOT_SOURCE_SET_NAME);
+		SourceSet mainSourceSet = java.getSourceSets().findByName(SourceSet.MAIN_SOURCE_SET_NAME);
 		assertThat(aotSourceSet).isNotNull();
 		assertThat(aotSourceSet.getJava().getSourceDirectories())
-				.anyMatch(file -> file.getAbsolutePath().endsWith("/build/generated/sources/aot"));
+				.hasSize(1)
+				.allMatch(file -> file.getAbsolutePath().endsWith("/build/generated/sources/aot"));
 		assertThat(aotSourceSet.getResources().getSourceDirectories())
-				.anyMatch(file -> file.getAbsolutePath().endsWith("/build/generated/resources/aot"));
+				.hasSize(1)
+				.allMatch(file -> file.getAbsolutePath().endsWith("/build/generated/resources/aot"));
+		assertThat(aotSourceSet.getCompileClasspath()).containsAll(mainSourceSet.getRuntimeClasspath());
 	}
 
 	@Test
-	@Disabled
 	public void pluginRegistersAotTasks() {
 		Project project = createTestProject();
 
@@ -66,16 +67,10 @@ public class SpringAotGradlePluginTest {
 
 		TaskProvider<Task> compileAotProvider = project.getTasks().named(aotSourceSet.getCompileJavaTaskName());
 		assertThat(compileAotProvider.isPresent()).isTrue();
-
-		assertThat(compileAotProvider.get().getDependsOn()).contains(generateAotSourcesProvider.get());
-
-		SourceSet mainSourceSet = java.getSourceSets().findByName(SourceSet.MAIN_SOURCE_SET_NAME);
-		assertThat(mainSourceSet.getRuntimeClasspath().getFiles()).containsAll(aotSourceSet.getOutput());
 	}
 
 
 	@Test
-	@Disabled
 	public void pluginRegistersAotTestSourceSet() {
 		Project project = createTestProject();
 
@@ -84,13 +79,14 @@ public class SpringAotGradlePluginTest {
 		SourceSet aotTestSourceSet = java.getSourceSets().findByName(SpringAotGradlePlugin.AOT_TEST_SOURCE_SET_NAME);
 		assertThat(aotTestSourceSet).isNotNull();
 		assertThat(aotTestSourceSet.getJava().getSourceDirectories())
-				.anyMatch(file -> file.getAbsolutePath().endsWith("/build/generated/sources/aotTest"));
+				.hasSize(1)
+				.allMatch(file -> file.getAbsolutePath().endsWith("/build/generated/sources/aotTest"));
 		assertThat(aotTestSourceSet.getResources().getSourceDirectories())
-				.anyMatch(file -> file.getAbsolutePath().endsWith("/build/generated/resources/aotTest"));
+				.hasSize(1)
+				.allMatch(file -> file.getAbsolutePath().endsWith("/build/generated/resources/aotTest"));
 	}
 
 	@Test
-	@Disabled
 	public void pluginRegistersAotTestTasks() {
 		Project project = createTestProject();
 
