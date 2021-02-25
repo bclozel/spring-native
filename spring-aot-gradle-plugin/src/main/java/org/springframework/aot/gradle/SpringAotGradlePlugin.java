@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springframework.nativex.gradle;
+package org.springframework.aot.gradle;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -26,11 +26,11 @@ import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginConvention;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.compile.JavaCompile;
+
+import org.springframework.aot.gradle.tasks.GenerateAotSources;
 import org.springframework.boot.gradle.plugin.SpringBootPlugin;
 import org.springframework.boot.gradle.tasks.bundling.BootJar;
-import org.springframework.boot.gradle.tasks.bundling.BootWar;
 import org.springframework.boot.gradle.tasks.run.BootRun;
-import org.springframework.nativex.gradle.tasks.GenerateAotSources;
 
 /**
  *

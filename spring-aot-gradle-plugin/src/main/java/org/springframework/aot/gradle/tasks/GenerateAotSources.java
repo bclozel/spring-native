@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springframework.nativex.gradle.tasks;
+package org.springframework.aot.gradle.tasks;
 
 import java.io.File;
 import java.io.IOException;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springframework.nativex.gradle;
+package org.springframework.aot.gradle;
 
 import io.spring.gradle.dependencymanagement.DependencyManagementPlugin;
 import org.gradle.api.Task;
@@ -27,8 +27,8 @@ import org.gradle.api.Project;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import org.springframework.aot.gradle.tasks.GenerateAotSources;
 import org.springframework.boot.gradle.plugin.SpringBootPlugin;
-import org.springframework.nativex.gradle.tasks.GenerateAotSources;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,9 +40,7 @@ public class SpringAotGradlePluginTest {
 	@Test
 	@Disabled
 	public void pluginRegistersAotSourceSet() {
-		Project project = ProjectBuilder.builder().build();
-		project.getPlugins().apply("java");
-		project.getPlugins().apply("org.springframework.experimental.aot");
+		Project project = createTestProject();
 
 		JavaPluginConvention java = project.getConvention().getPlugin(JavaPluginConvention.class);
 
@@ -57,12 +55,7 @@ public class SpringAotGradlePluginTest {
 	@Test
 	@Disabled
 	public void pluginRegistersAotTasks() {
-		Project project = ProjectBuilder.builder().build();
-		project.getRepositories().mavenCentral();
-		project.getPlugins().apply("java");
-		project.getPlugins().apply("org.springframework.experimental.aot");
-		project.getPlugins().apply(SpringBootPlugin.class);
-		project.getPlugins().apply(DependencyManagementPlugin.class);
+		Project project = createTestProject();
 
 		JavaPluginConvention java = project.getConvention().getPlugin(JavaPluginConvention.class);
 		SourceSet aotSourceSet = java.getSourceSets().findByName(SpringAotGradlePlugin.AOT_SOURCE_SET_NAME);
@@ -80,12 +73,11 @@ public class SpringAotGradlePluginTest {
 		assertThat(mainSourceSet.getRuntimeClasspath().getFiles()).containsAll(aotSourceSet.getOutput());
 	}
 
+
 	@Test
 	@Disabled
 	public void pluginRegistersAotTestSourceSet() {
-		Project project = ProjectBuilder.builder().build();
-		project.getPlugins().apply("java");
-		project.getPlugins().apply("org.springframework.experimental.aot");
+		Project project = createTestProject();
 
 		JavaPluginConvention java = project.getConvention().getPlugin(JavaPluginConvention.class);
 
@@ -100,12 +92,7 @@ public class SpringAotGradlePluginTest {
 	@Test
 	@Disabled
 	public void pluginRegistersAotTestTasks() {
-		Project project = ProjectBuilder.builder().build();
-		project.getRepositories().mavenCentral();
-		project.getPlugins().apply("java");
-		project.getPlugins().apply("org.springframework.experimental.aot");
-		project.getPlugins().apply(SpringBootPlugin.class);
-		project.getPlugins().apply(DependencyManagementPlugin.class);
+		Project project = createTestProject();
 
 		JavaPluginConvention java = project.getConvention().getPlugin(JavaPluginConvention.class);
 		SourceSet aotTestSourceSet = java.getSourceSets().findByName(SpringAotGradlePlugin.AOT_TEST_SOURCE_SET_NAME);
@@ -125,5 +112,17 @@ public class SpringAotGradlePluginTest {
 		assertThat(test.getClasspath().getFiles())
 				.containsAll(aotTestSourceSet.getOutput().getClassesDirs().getFiles())
 				.doesNotContainAnyElementsOf(aotSourceSet.getOutput().getClassesDirs().getFiles());
+	}
+
+
+	private Project createTestProject() {
+		Project project = ProjectBuilder.builder().build();
+		project.getRepositories().mavenLocal();
+		project.getRepositories().mavenCentral();
+		project.getPlugins().apply("java");
+		project.getPlugins().apply(DependencyManagementPlugin.class);
+		project.getPlugins().apply(SpringBootPlugin.class);
+		project.getPlugins().apply("org.springframework.experimental.aot");
+		return project;
 	}
 }
