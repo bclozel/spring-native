@@ -1,0 +1,63 @@
+plugins {
+    id 'java-gradle-plugin'
+}
+
+repositories {
+    mavenLocal()
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.experimental:spring-aot:0.9.0-SNAPSHOT'
+	implementation 'org.springframework.boot:spring-boot-gradle-plugin:2.4.3'
+
+	testImplementation 'io.spring.gradle:dependency-management-plugin:1.0.11.RELEASE'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.0'
+	testImplementation 'org.assertj:assertj-core:3.18.1'
+}
+
+gradlePlugin {
+    // Define the plugin
+    plugins {
+		springAot {
+            id = 'org.springframework.experimental.aot'
+            implementationClass = 'org.springframework.nativex.gradle.SpringAotGradlePlugin'
+        }
+    }
+}
+
+// Add a source set for the functional test suite
+sourceSets {
+    functionalTest {
+    }
+}
+
+test {
+	useJUnitPlatform()
+	testLogging {
+		events "passed", "skipped", "failed"
+	}
+}
+
+gradlePlugin.testSourceSets(sourceSets.functionalTest)
+configurations.functionalTestImplementation.extendsFrom(configurations.testImplementation)
+
+// Add a task to run the functional tests
+tasks.register('functionalTest', Test) {
+    testClassesDirs = sourceSets.functionalTest.output.classesDirs
+    classpath = sourceSets.functionalTest.runtimeClasspath
+}
+
+tasks.named('check') {
+    // Run the functional tests as part of `check`
+    dependsOn(tasks.functionalTest)
+}
+
+task sourcesJar(type: Jar) {
+	archiveClassifier = 'sources'
+	from sourceSets.main.allSource
+}
+
+artifacts {
+	archives sourcesJar
+}
