@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.FileCollection;
+import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.TaskAction;
@@ -44,7 +45,7 @@ public class GenerateAotSources extends DefaultTask {
 
 	private FileCollection classpath;
 
-	private FileCollection resourceDirectories;
+	private SourceDirectorySet resourceDirectories;
 
 	private final DirectoryProperty sourcesOutputDirectory;
 
@@ -69,7 +70,7 @@ public class GenerateAotSources extends DefaultTask {
 		return this.resourceDirectories;
 	}
 
-	public void setResourceInputDirectories(FileCollection resourceDirectories) {
+	public void setResourceInputDirectories(SourceDirectorySet resourceDirectories) {
 		this.resourceDirectories = resourceDirectories;
 	}
 
@@ -87,8 +88,7 @@ public class GenerateAotSources extends DefaultTask {
 	public void generateSources() {
 		List<String> classpathElements = this.classpath.getFiles().stream()
 				.map(File::getAbsolutePath).collect(Collectors.toList());
-		Set<Path> resourcesElements = this.resourceDirectories.getFiles().stream().filter(file -> file.isDirectory())
-				.map(File::toPath).collect(Collectors.toSet());
+		Set<Path> resourcesElements = this.resourceDirectories.getSrcDirs().stream().map(File::toPath).collect(Collectors.toSet());
 		AotOptions options = new AotOptions();
 		BootstrapCodeGenerator generator = new BootstrapCodeGenerator(options);
 		try {
