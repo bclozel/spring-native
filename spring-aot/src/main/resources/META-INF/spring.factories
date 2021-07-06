@@ -4,3 +4,8 @@ org.springframework.boot.context.properties.ConfigurationPropertiesBeanDefinitio
 org.springframework.boot.sql.init.dependency.DatabaseInitializationDependencyBeanDefinitionOriginAnalyzer,\
 org.springframework.boot.web.server.WebServerFactoryAutoConfigurationBeanDefinitionOriginAnalyzer,\
 org.springframework.context.annotation.CoreBeanDefinitionOriginAnalyzer
+
+org.springframework.context.bootstrap.generator.bean.BeanValueWriterSupplier=\
+org.springframework.boot.autoconfigure.AutoConfigurationPackagesBeanValueWriterSupplier,\
+org.springframework.boot.autoconfigure.context.properties.ConfigurationPropertiesBeanValueWriterSupplier,\
+org.springframework.context.bootstrap.generator.bean.DefaultBeanValueWriterSupplier
